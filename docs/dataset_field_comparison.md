@@ -159,6 +159,17 @@ Example:
 
 How to read this: Go to the evidence page/document titled Nikolaj_Coster-Waldau, and take sentence number 7. That sentence supports the claim.
 
+### Rationale for using FEVER:
+Its purpose is to train/evaluate the system’s ability to handle:
+
+1. Contradicted evidence
+2. Insufficient evidence
+3. Claim verification
+4. Sentence-level support/refute labels
+5. Evidence-based abstention or verification decisions
+
+This can be done due to FEVER providing the 3 classes of 'Supports', 'Refutes' and 'Not enough Info'.
+
 ## MuSiQue
 Overall Structure:
 **Features:** ['id', 'paragraphs', 'question', 'question_decomposition', 'answer', 'answer_aliases', 'answerable'],
@@ -229,3 +240,59 @@ The schema must support:
 - multi-hop evidence
 - insufficient evidence
 - provenance metadata
+
+Sample Schema:
+
+{
+  **"example_id": "...", - will have the dataset name in front as samples from different datasets can have the same id
+  
+  "dataset": "...",
+  "task_type": "...",
+
+  "input_text": "...",
+  "input_type": "question_or_claim",
+
+  "target_answer": null,
+  "target_label": null,
+
+  "evidence_state_label": "sufficient",
+
+  "evidence_set": {
+    "condition": "original",
+    "canonical_granularity": "sentence",
+    "native_granularity": "sentence"
+  },
+
+  "evidence_units": [
+    {
+      "evidence_id": "...",
+      "text": "...",
+      "doc_title": "...",
+      "canonical_unit_type": "sentence",
+      "native_unit_type": "sentence",
+      "paragraph_index": null,
+      "sentence_index": 0,
+      "text_status": "available",
+
+      "is_gold_evidence": true,
+      "support_role": "supports",
+      "native_label": "supporting_fact",
+      "label_strength": "gold_sentence",
+      "supervision_weight": 1.0,
+
+      "provenance": {
+        "dataset": "...",
+        "source_type": "dataset_context",
+        "doc_title": "...",
+        "paragraph_index": null,
+        "sentence_index": 0,
+        "timestamp": null,
+        "version": null
+      }
+    }
+  ],
+
+  "agent_action_label": "answer"
+}
+
+we could store the graph metadata separately in another file to prevent the JSON from being too messy.
