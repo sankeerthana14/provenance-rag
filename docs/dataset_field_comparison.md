@@ -241,35 +241,41 @@ The schema must support:
 - insufficient evidence
 - provenance metadata
 
-Sample Schema:
+Final Schema:
 
 {
-  **"example_id": "...", - will have the dataset name in front as samples from different datasets can have the same id
-  
-  "dataset": "...",
-  "task_type": "...",
+  "example_id": "hotpotqa_000001_gold_full",
+  "dataset": "hotpotqa",
+  "task_type": "multi_hop_qa",
 
   "input_text": "...",
-  "input_type": "question_or_claim",
+  "input_type": "question",
 
-  "target_answer": null,
+  "target_answer": "...",
   "target_label": null,
 
   "evidence_state_label": "sufficient",
 
   "evidence_set": {
-    "condition": "original",
+    "condition": "gold_full",
+    "created_by": "dataset",
     "canonical_granularity": "sentence",
-    "native_granularity": "sentence"
+    "native_granularity": "sentence",
+    "num_evidence_units": 2,
+    "num_gold_evidence_units": 2,
+    "num_sources": 2
   },
 
   "evidence_units": [
     {
-      "evidence_id": "...",
+      "evidence_id": "hotpotqa_000001_Arthur_Magazine_sent_0",
       "text": "...",
-      "doc_title": "...",
+      "doc_title": "Arthur's Magazine",
+      "source_doc_id": "hotpotqa::Arthur's_Magazine",
+
       "canonical_unit_type": "sentence",
       "native_unit_type": "sentence",
+
       "paragraph_index": null,
       "sentence_index": 0,
       "text_status": "available",
@@ -281,18 +287,22 @@ Sample Schema:
       "supervision_weight": 1.0,
 
       "provenance": {
-        "dataset": "...",
+        "dataset": "hotpotqa",
         "source_type": "dataset_context",
-        "doc_title": "...",
+        "doc_title": "Arthur's Magazine",
+        "source_doc_id": "hotpotqa::Arthur's_Magazine",
         "paragraph_index": null,
         "sentence_index": 0,
         "timestamp": null,
-        "version": null
+        "version": null,
+        "provenance_granularity": "sentence"
       }
     }
   ],
 
   "agent_action_label": "answer"
 }
+
+
 
 we could store the graph metadata separately in another file to prevent the JSON from being too messy.
