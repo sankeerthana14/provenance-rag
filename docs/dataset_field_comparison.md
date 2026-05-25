@@ -243,7 +243,7 @@ The schema must support:
 
 Final Schema:
 
-{
+[{
   "example_id": "hotpotqa_000001_gold_full",
   "dataset": "hotpotqa",
   "task_type": "multi_hop_qa",
@@ -301,7 +301,7 @@ Final Schema:
   ],
 
   "agent_action_label": "answer"
-}
+}]
 
 
 
