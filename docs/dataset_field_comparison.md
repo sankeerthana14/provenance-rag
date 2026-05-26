@@ -318,23 +318,30 @@ To ensure balanced representation across datasets and evidence-state classes, we
 | HotpotQA | Val | 2,500 | 103,172 | 6,041 | 41.3 | 2.4 |
 | MuSiQue | Train | 30,000 | 599,908 | 48,105 | 20.0 | 1.6 |
 | MuSiQue | Val | 4,834 | 96,626 | 9,133 | 20.0 | 1.9 |
+| FEVER | Train | 30,000 | 30,000 | 25,206 | 1.0 | 0.8 |
+| FEVER | Val | 7,000 | 7,000 | 5,405 | 1.0 | 0.8 |
 
 ### Evidence-State Variant Distribution
 
-| Dataset | Split | Sufficient | Insufficient | Contradicted | Superseded | Total |
-|---------|-------|-----------|--------------|--------------|------------|-------|
-| HotpotQA | Train | 15,000 | 15,000 | 15,000 | 15,000 | 60,000 |
-| HotpotQA | Val | 2,500 | 2,500 | 2,500 | 2,500 | 10,000 |
-| MuSiQue | Train | 15,004 | 15,004 | 15,004 | 15,004 | 60,016 |
-| MuSiQue | Val | 2,417 | 2,417 | 2,417 | 2,417 | 9,668 |
-| **Combined** | **Train** | **30,004** | **30,004** | **30,004** | **30,004** | **120,016** |
-| **Combined** | **Val** | **4,917** | **4,917** | **4,917** | **4,917** | **19,668** |
+| Dataset | Split | Sufficient | Insufficient | Contradicted | Superseded |
+|---------|-------|-----------|--------------|--------------|------------|
+| HotpotQA | Train | 15,000 | 15,000 | 15,000 | 15,000 |
+| HotpotQA | Val | 2,500 | 2,500 | 2,500 | 2,500 |
+| MuSiQue | Train | 15,004 | 15,004 | 15,004 | 15,004 |
+| MuSiQue | Val | 2,417 | 2,417 | 2,417 | 2,417 |
+| FEVER | Train | 18,408 | 18,408 | 11,730† | 11,730† |
+| FEVER | Val | 2,796 | 2,796 | 1,666† | 1,666† |
+| **Combined** | **Train** | **48,412** | **48,412** | **41,734** | **41,734** |
+| **Combined** | **Val** | **7,713** | **7,713** | **6,583** | **6,583** |
+
+† FEVER contradicted and superseded variants are lower because 36% of SUPPORTS examples have unresolved Wikipedia evidence text, preventing synthetic contradiction/supersession generation.
 
 ### Notes
-- MuSiQue raw examples contain ~50% unanswerable instances (labeled as insufficient during conversion); 30,000 raw examples yield ~15,004 sufficient instances for variant creation.
-- HotpotQA examples are fully answerable by construction; raw count equals sufficient count.
-- FEVER dataset pending integration (requires Wikipedia corpus for evidence text resolution).
+- HotpotQA: All examples are answerable; raw count equals sufficient count. Sentence-level evidence with avg 2.4 gold supporting facts per instance.
+- MuSiQue: ~50% of examples are unanswerable; 30,000 raw examples yield ~15,004 sufficient instances. Paragraph-level evidence with avg 1.6 gold supporting paragraphs per instance.
+- FEVER: ~61% SUPPORTS, ~16% REFUTES, ~23% NOT ENOUGH INFO in the sampled subset. Evidence is single sentence-level per instance, resolved from the FEVER Wikipedia corpus (5.4M pages, 25.2M sentences).
+- During the merge step, classes will be balanced by subsampling to the smallest class count per split.
 - All variant creation uses seed=42 for reproducibility.
 - Insufficient variants: one gold evidence unit removed per instance.
-- Contradicted variants: one synthetic contradicting evidence unit added per instance.
-- Superseded variants: one gold unit marked as outdated, one synthetic newer version added.
+- Contradicted variants: one synthetic contradicting evidence unit added alongside original gold evidence.
+- Superseded variants: one gold unit marked as outdated (timestamp 2018), one synthetic newer version added (timestamp 2025).

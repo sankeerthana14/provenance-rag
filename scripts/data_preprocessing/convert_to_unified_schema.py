@@ -308,24 +308,25 @@ def convert_hotpotqa(raw_example: Dict, idx: int) -> Optional[Dict]:
         agent_action_label="answer",
     )
 
-
 def convert_fever(raw_example: Dict, idx: int, wiki_lookup: Optional[Dict] = None) -> Optional[Dict]:
     """
     Convert a single FEVER example to the unified schema.
     
-    FEVER structure:
+    FEVER structure (HuggingFace v1.0):
         - claim: str
         - label: "SUPPORTS", "REFUTES", or "NOT ENOUGH INFO"
-        - evidence_sentences: list of [annotation_id, evidence_id, 
-          wiki_page, sentence_index] (can be nested)
-        - evidence_wiki_url: str (sometimes)
+        - evidence_annotation_id: int (single value per row)
+        - evidence_id: int (single value per row)
+        - evidence_wiki_url: str (single value per row)
+        - evidence_sentence_id: int (single value per row)
+    
+    Note: HuggingFace stores one claim-evidence pair per row.
+    Multiple evidence items for the same claim appear as separate rows.
     
     KEY DIFFERENCES FROM HOTPOTQA:
     1. Input is a "claim" not a "question"
     2. Label is a verification label, not an answer
-    3. Evidence may be unresolved (just a page + sentence ID,
-       no actual text in the dataset). We handle both cases.
-    4. Three classes map naturally:
+    3. Three classes map naturally:
        SUPPORTS    → sufficient (gold evidence supports the claim)
        REFUTES     → contradicted (evidence contradicts the claim)
        NOT ENOUGH INFO → insufficient (not enough evidence)
@@ -355,68 +356,79 @@ def convert_fever(raw_example: Dict, idx: int, wiki_lookup: Optional[Dict] = Non
     agent_action = label_to_action.get(label, "retrieve_more")
     support_role = label_to_role.get(label, "unknown")
     
-    # Extract evidence annotations
-    # FEVER evidence is nested: list of annotation sets,
-    # each annotation set is a list of [ann_id, ev_id, page, sent_id]
+    # Extract evidence
+    # HuggingFace FEVER v1.0 stores evidence as SINGLE values per row,
+    # not as lists. Handle both cases for safety.
     evidence_units = []
-    seen_evidence = set()  # avoid duplicates
     
-    evidence_annotations = raw_example.get("evidence_annotation_id") or []
-    evidence_wiki = raw_example.get("evidence_wiki_url") or []
-    evidence_sent_ids = raw_example.get("evidence_sentence_id") or []
+    wiki_url = raw_example.get("evidence_wiki_url")
+    sent_id = raw_example.get("evidence_sentence_id")
     
-    # Handle the nested evidence format
-    # FEVER stores evidence as parallel lists
-    if isinstance(evidence_annotations, list):
-        for ev_idx in range(len(evidence_annotations)):
-            try:
-                wiki_page = evidence_wiki[ev_idx] if ev_idx < len(evidence_wiki) else None
-                sent_id = evidence_sent_ids[ev_idx] if ev_idx < len(evidence_sent_ids) else None
-            except (IndexError, TypeError):
-                continue
-            
-            if wiki_page is None:
-                continue
-            
-            # Deduplicate
-            ev_key = (wiki_page, sent_id)
-            if ev_key in seen_evidence:
-                continue
-            seen_evidence.add(ev_key)
-            
-            page_slug = str(wiki_page).replace(" ", "_")[:30]
-            ev_id = f"fever_{idx:06d}_{page_slug}_sent_{sent_id}"
-            
-            # Resolve actual sentence text from wiki lookup
-            resolved_text = None
-            text_status = "unresolved_reference"
-            if wiki_lookup and sent_id is not None:
-                page_data = wiki_lookup.get(str(wiki_page)) or wiki_lookup.get(str(wiki_page).replace(" ", "_"))
-                if page_data:
-                    resolved_text = page_data.get(int(sent_id))
-                    if resolved_text:
-                        text_status = "available"
-            
-            evidence_units.append(make_evidence_unit(
-                evidence_id=ev_id,
-                text=resolved_text,
-                doc_title=str(wiki_page),
-                source_doc_id=f"fever::{wiki_page}",
-                sentence_index=int(sent_id) if sent_id is not None else None,
-                canonical_unit_type="sentence",
-                native_unit_type="sentence",
-                is_gold_evidence=(label != "NOT ENOUGH INFO"),
-                support_role=support_role,
-                native_label=label,
-                label_strength="gold_sentence" if label != "NOT ENOUGH INFO" else "none",
-                supervision_weight=1.0 if label != "NOT ENOUGH INFO" else 0.0,
-                text_status=text_status,
-                dataset="fever",
-            ))
+    # Normalize: if they're lists, take all; if single values, wrap in list
+    if isinstance(wiki_url, list):
+        wiki_urls = wiki_url
+        sent_ids = raw_example.get("evidence_sentence_id", [])
+        if not isinstance(sent_ids, list):
+            sent_ids = [sent_ids]
+    else:
+        wiki_urls = [wiki_url] if wiki_url else []
+        sent_ids = [sent_id] if sent_id is not None else []
     
-    # For NOT ENOUGH INFO, we may have no evidence — that's expected
+    # Process each evidence reference
+    seen_evidence = set()
+    for ev_idx in range(len(wiki_urls)):
+        w_url = wiki_urls[ev_idx] if ev_idx < len(wiki_urls) else None
+        s_id = sent_ids[ev_idx] if ev_idx < len(sent_ids) else None
+        
+        # Skip empty or None
+        if not w_url or w_url == "":
+            continue
+        
+        # Skip NOT ENOUGH INFO (they have no real evidence)
+        if label == "NOT ENOUGH INFO":
+            continue
+        
+        # Deduplicate
+        ev_key = (w_url, s_id)
+        if ev_key in seen_evidence:
+            continue
+        seen_evidence.add(ev_key)
+        
+        # Resolve text from wiki lookup
+        resolved_text = None
+        text_status = "unresolved_reference"
+        
+        if wiki_lookup and s_id is not None:
+            page_data = (wiki_lookup.get(str(w_url)) or 
+                        wiki_lookup.get(str(w_url).replace(" ", "_")) or
+                        wiki_lookup.get(str(w_url).replace("_", " ")))
+            if page_data:
+                resolved_text = page_data.get(int(s_id))
+                if resolved_text:
+                    text_status = "available"
+        
+        page_slug = str(w_url).replace(" ", "_")[:30]
+        ev_id = f"fever_{idx:06d}_{page_slug}_sent_{s_id}"
+        
+        evidence_units.append(make_evidence_unit(
+            evidence_id=ev_id,
+            text=resolved_text,
+            doc_title=str(w_url),
+            source_doc_id=f"fever::{w_url}",
+            sentence_index=int(s_id) if s_id is not None else None,
+            canonical_unit_type="sentence",
+            native_unit_type="sentence",
+            is_gold_evidence=True,
+            support_role=support_role,
+            native_label=label,
+            label_strength="gold_sentence",
+            supervision_weight=1.0,
+            text_status=text_status,
+            dataset="fever",
+        ))
+    
+    # For NOT ENOUGH INFO, create a placeholder
     if label == "NOT ENOUGH INFO" and len(evidence_units) == 0:
-        # Create a placeholder to represent "no evidence available"
         evidence_units.append(make_evidence_unit(
             evidence_id=f"fever_{idx:06d}_no_evidence",
             text=None,
@@ -448,7 +460,6 @@ def convert_fever(raw_example: Dict, idx: int, wiki_lookup: Optional[Dict] = Non
         ),
         agent_action_label=agent_action,
     )
-
 
 def convert_musique(raw_example: Dict, idx: int) -> Optional[Dict]:
     """
@@ -573,7 +584,7 @@ def run_conversion(args):
         wiki_lookup = None
         if os.path.exists(args.fever_wiki_lookup):
             print(f"  Loading FEVER wiki lookup from {args.fever_wiki_lookup}...")
-            with open(args.fever_wiki_lookup, "r") as f:
+            with open(args.fever_wiki_lookup, "r", encoding="utf-8") as f:
                 raw_lookup = json.load(f)
             # Convert string sentence IDs back to int
             wiki_lookup = {}
