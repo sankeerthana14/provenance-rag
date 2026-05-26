@@ -304,3 +304,37 @@ Final Schema:
 
 
 we could store the graph metadata separately in another file to prevent the JSON from being too messy.
+
+## Rationale for Splitting the Musique and HotpotQA datasets
+To ensure balanced representation across datasets and evidence-state classes, we apply dataset-specific sampling strategies during preprocessing. HotpotQA examples are fully answerable by construction, so we sample 15,000 training and 2,500 validation examples directly. MuSiQue, however, contains approximately equal proportions of answerable and unanswerable examples; we therefore sample 30,000 training and 5,000 validation examples to yield approximately 15,000 and 2,500 sufficient (answerable) instances respectively, after filtering. For each sufficient instance, we construct one variant per degraded evidence state — insufficient, contradicted, and superseded — using controlled evidence modification (Section III-F), producing a balanced four-class dataset with approximately 15,000 training examples and 2,500 validation examples per class per dataset. This design ensures that the evidence-state detector learns evidence-quality patterns rather than dataset-specific artifacts or class-frequency biases.
+
+## Dataset Statistics
+
+### Schema Conversion Summary
+
+| Dataset | Split | Raw Examples | Evidence Units | Gold Evidence | Avg Evidence/Instance | Avg Gold/Instance |
+|---------|-------|-------------|----------------|---------------|----------------------|-------------------|
+| HotpotQA | Train | 15,000 | 612,155 | 35,836 | 40.8 | 2.4 |
+| HotpotQA | Val | 2,500 | 103,172 | 6,041 | 41.3 | 2.4 |
+| MuSiQue | Train | 30,000 | 599,908 | 48,105 | 20.0 | 1.6 |
+| MuSiQue | Val | 4,834 | 96,626 | 9,133 | 20.0 | 1.9 |
+
+### Evidence-State Variant Distribution
+
+| Dataset | Split | Sufficient | Insufficient | Contradicted | Superseded | Total |
+|---------|-------|-----------|--------------|--------------|------------|-------|
+| HotpotQA | Train | 15,000 | 15,000 | 15,000 | 15,000 | 60,000 |
+| HotpotQA | Val | 2,500 | 2,500 | 2,500 | 2,500 | 10,000 |
+| MuSiQue | Train | 15,004 | 15,004 | 15,004 | 15,004 | 60,016 |
+| MuSiQue | Val | 2,417 | 2,417 | 2,417 | 2,417 | 9,668 |
+| **Combined** | **Train** | **30,004** | **30,004** | **30,004** | **30,004** | **120,016** |
+| **Combined** | **Val** | **4,917** | **4,917** | **4,917** | **4,917** | **19,668** |
+
+### Notes
+- MuSiQue raw examples contain ~50% unanswerable instances (labeled as insufficient during conversion); 30,000 raw examples yield ~15,004 sufficient instances for variant creation.
+- HotpotQA examples are fully answerable by construction; raw count equals sufficient count.
+- FEVER dataset pending integration (requires Wikipedia corpus for evidence text resolution).
+- All variant creation uses seed=42 for reproducibility.
+- Insufficient variants: one gold evidence unit removed per instance.
+- Contradicted variants: one synthetic contradicting evidence unit added per instance.
+- Superseded variants: one gold unit marked as outdated, one synthetic newer version added.
