@@ -232,8 +232,8 @@ def negate_text(text: str, answer: Optional[str], rng: random.Random) -> str:
     """
     Generate a contradicting version of evidence text using templates.
     
-    For the final TKDE paper, upgrade to LLM-generated contradictions.
-    For QE report, templates are sufficient.
+    For the final paper, upgrade to LLM-generated contradictions.
+    For report, templates are sufficient.
     """
     short_text = text[:120].rstrip()
     if len(text) > 120:
