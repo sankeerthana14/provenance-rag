@@ -30,34 +30,35 @@ provenance-rag/
 ├── main.py                              # single entry point for the full pipeline
 ├── requirements.txt
 ├── README.md
-├── scripts/
-│   ├── data_preprocessing/              # build the benchmark
-│   │   ├── download_dataset.py          # download FEVER / HotpotQA / MuSiQue
-│   │   ├── FEVER_wiki_resolver.py       # build FEVER Wikipedia sentence lookup
-│   │   ├── downloading_model.py         # download base encoders
-│   │   ├── convert_to_unified_schema.py # raw data -> provenance-aware schema
-│   │   ├── create_variants.py           # generate the 4 evidence-state variants
-│   │   ├── merge_and_build_graphs.py    # merge + evidence graphs + 8 features
-│   │   ├── preprocess_v2.py             # final splits + structured formatting
-│   │   ├── preprocess_light.py          # (optional) lightweight intermediate files
-│   │   └── inspecting_datasets.py       # (optional) dataset inspection
-│   └── model_dev/                       # detectors, baselines, evaluation
-│       ├── train_detector_v2.py         # detector training (encoders + features)
-│       ├── train_detector.py            # (imported by the cross-dataset script)
-│       ├── competitor_baseline.py       # NLI + embedding-similarity baselines
-│       ├── rag_competitor_eval.py       # RAGAS- / CRAG- / Self-RAG-style baselines
-│       ├── cross_dataset_generalization.py
-│       ├── end_to_end_eval.py           # agentic remediation evaluation
-│       ├── visualization.py             # figures
-│       ├── real_case_study.py           # (optional) qualitative case study
-│       ├── run_train_detector.sh        # example SLURM launcher
-│       └── run_feature_ablate.sh        # example SLURM launcher (ablation sweep)
-├── data/      # created at runtime (gitignored)
-├── models/    # populated by the download stage (gitignored)
-└── results/   # experiment outputs (gitignored)
+├── .gitignore
+├── docs/
+│   └── dataset_field_comparison.md      # field-by-field notes on the source datasets
+└── scripts/
+    ├── data_preprocessing/              # build the benchmark
+    │   ├── download_dataset.py          # download FEVER / HotpotQA / MuSiQue
+    │   ├── FEVER_wiki_resolver.py       # build FEVER Wikipedia sentence lookup
+    │   ├── downloading_model.py         # download base encoders
+    │   ├── convert_to_unified_schema.py # raw data -> provenance-aware schema
+    │   ├── create_variants.py           # generate the 4 evidence-state variants
+    │   ├── merge_and_build_graphs.py    # merge + evidence graphs + 8 features
+    │   ├── preprocess_v2.py             # final splits + structured formatting
+    │   ├── preprocess_light.py          # (optional) lightweight intermediate files
+    │   └── inspecting_datasets.py       # (optional) dataset inspection
+    └── model_dev/                       # detectors, baselines, evaluation
+        ├── train_detector_v2.py         # detector training (encoders + features)
+        ├── train_detector.py            # (imported by the cross-dataset script)
+        ├── competitor_baseline.py       # NLI + embedding-similarity baselines
+        ├── rag_competitor_eval.py       # RAGAS- / CRAG- / Self-RAG-style baselines
+        ├── cross_dataset_generalization.py
+        ├── end_to_end_eval.py           # agentic remediation evaluation
+        └── visualization.py             # figures
 ```
 
-`data/`, `models/`, and `results/` are not tracked; they are produced by the pipeline.
+The pipeline creates three directories at runtime; none of them are committed (see `.gitignore`):
+
+- `data/` — raw and processed datasets, built by the **process** stage
+- `models/` — base encoders, populated by the **download** stage
+- `results/` — experiment outputs, written by the **experiments** stage
 
 ---
 
@@ -133,6 +134,9 @@ python main.py --stage figures              # regenerate figures
 
 The benchmark splits in `data/processed/{train,val,test}.json` are consumed by every experiment, so
 the **process** stage must complete before **experiments**.
+
+> **MuSiQue note:** MuSiQue is loaded from a local `save_to_disk` directory. By default the converter
+> reads `data/raw/musique_rebuilt`; pass `--musique_dir` to point it wherever your MuSiQue copy lives.
 
 ---
 
