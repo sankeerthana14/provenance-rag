@@ -2,7 +2,7 @@
 visualize_features.py
 =====================
 Create publication-quality figures showing how provenance features
-differ across evidence states. For TKDE paper and QE report.
+differ across evidence states.
 
 Usage:
     python visualize_features.py \
