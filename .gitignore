@@ -7,9 +7,9 @@ __pycache__/
 .venv/
 venv/
 
-#data/raw/
-#data/interim/
-#data/processed/
+data/raw/
+data/interim/
+data/processed/
 *.jsonl
 *.parquet
 *.csv
