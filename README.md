@@ -1,7 +1,6 @@
 # PROVE-RAG: Provenance-Aware Evidence-State Assessment for Trustworthy Agentic RAG
 
-> **Status:** Under review at *IEEE Transactions on Knowledge and Data Engineering (TKDE)*.
-> This repository is **anonymized for double-blind review**
+> **Status:** This repository is **anonymized for double-blind review**
 
 PROVE-RAG adds an explicit **evidence-state layer** between retrieval and generation in agentic
 Retrieval-Augmented Generation (RAG). The core observation is that *retrieval relevance is not the
