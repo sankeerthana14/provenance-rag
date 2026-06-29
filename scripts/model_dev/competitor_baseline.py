@@ -1,9 +1,7 @@
 """
 competitor_baselines.py
 =======================
-Competitor baselines for evidence-state detection.
-
-Implements three paradigms that compares PROVE-RAG is compared against:
+Competitor baselines for evidence-state detection. Implements three paradigms that compares PROVE-RAG is compared against:
 
 1. NLI-based (roberta-large-mnli)
    — Represents the NLP entailment approach.
