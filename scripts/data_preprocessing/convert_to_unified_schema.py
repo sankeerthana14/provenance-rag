@@ -89,6 +89,19 @@ def parse_args():
         default="data/fever_wiki_lookup.json",
         help="Path to FEVER wiki sentence lookup JSON (build with fever_wiki_resolver.py)"
     )
+
+    # Optional: directory holding the MuSiQue dataset (needed for MuSiQue only).
+    # MuSiQue is loaded from a local save_to_disk directory rather than the Hub,
+    # so this points at the folder that contains one sub-directory per split
+    # (e.g. <musique_dir>/train, <musique_dir>/validation). Relative to the repo root.
+    parser.add_argument(
+        "--musique_dir",
+        type=str,
+        default="data/raw/musique_rebuilt",
+        help="Directory holding the MuSiQue dataset saved via save_to_disk, with one "
+             "sub-directory per split (e.g. data/raw/musique_rebuilt/train). Adjust to "
+             "wherever your MuSiQue copy lives."
+    )
     
     return parser.parse_args()
 
@@ -573,8 +586,10 @@ def run_conversion(args):
     
     if args.dataset == "hotpotqa":
         # HotpotQA has two configs: "fullwiki" and "distractor"
-        # "distractor" is more common for QA research
-        raw_dataset = load_dataset("hotpot_qa", "distractor", split=args.split)
+        # "distractor" is more common for QA research.
+        # Use the namespaced Hub id ("hotpotqa/hotpot_qa"); the bare
+        # "hotpot_qa" alias is deprecated on recent `datasets` versions.
+        raw_dataset = load_dataset("hotpotqa/hotpot_qa", "distractor", split=args.split)
         convert_fn = convert_hotpotqa
         
     elif args.dataset == "fever":
@@ -600,8 +615,20 @@ def run_conversion(args):
         convert_fn = partial(convert_fever, wiki_lookup=wiki_lookup)
         
     elif args.dataset == "musique":
-        base_path = r"C:\Users\SATI0004\Documents\TKDE\provenance-rag\provenance-rag\data\raw\musique_rebuilt"
-        raw_dataset = load_from_disk(os.path.join(base_path, args.split))
+        # MuSiQue is loaded from a local save_to_disk directory (one sub-dir per split),
+        # not from the Hub. The directory is configurable via --musique_dir and is
+        # relative to the repo root (default: data/raw/musique_rebuilt).
+        # NOTE: download_dataset.py writes MuSiQue to data/raw/musique; if your copy
+        # lives there (or anywhere else), pass --musique_dir to match.
+        split_path = os.path.join(args.musique_dir, args.split)
+        if not os.path.isdir(split_path):
+            raise FileNotFoundError(
+                f"MuSiQue split not found at '{split_path}'. "
+                f"Point --musique_dir at the directory that holds the MuSiQue splits "
+                f"saved via Dataset.save_to_disk / load_dataset(...).save_to_disk "
+                f"(expected a sub-directory named '{args.split}' inside it)."
+            )
+        raw_dataset = load_from_disk(split_path)
         convert_fn = convert_musique
         
     print(f"  Loaded {len(raw_dataset)} examples")
