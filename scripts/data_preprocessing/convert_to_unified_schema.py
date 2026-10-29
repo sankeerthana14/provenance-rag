@@ -21,7 +21,9 @@ HOW ARGPARSE WORKS:
     When you run: python convert_to_schema.py --help
     It prints all available arguments automatically.
 """
-
+import hashlib
+import re
+import unicodedata
 import argparse
 import json
 import os
@@ -34,6 +36,146 @@ from typing import Dict, List, Optional
 # ============================================================
 # This is the "front door" of your script. It defines what
 # the user can control without editing the code.
+
+
+# ============================================================
+# TKDE REVISION: STABLE SOURCE IDENTITY AND TRACEABILITY
+# ============================================================
+
+def attach_source_traceability(instance, raw_example, original_split):
+    """
+    Attach stable source identifiers to a converted example.
+
+    These fields are for dataset construction and auditing.
+    They must NOT be passed to the detector as predictive features.
+
+    source_native_id:
+        Original dataset identifier, when available.
+
+    source_family_id:
+        Stable normalized-question-family identifier.
+
+    source_record_id:
+        Content fingerprint of the original source record.
+
+    source_split:
+        Original dataset partition (train/validation/test).
+    """
+
+    dataset = str(instance["dataset"]).strip().lower()
+
+    query = instance.get("input_text")
+
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError(
+            "Cannot create source identity: missing input_text"
+        )
+
+    # --------------------------------------------------------
+    # 1. NORMALIZED QUESTION FAMILY
+    # --------------------------------------------------------
+
+    normalized_query = unicodedata.normalize(
+        "NFKC", query
+    ).casefold()
+
+    normalized_query = re.sub(
+        r"[^\w]+",
+        " ",
+        normalized_query,
+        flags=re.UNICODE
+    ).strip()
+
+    question_digest = hashlib.sha256(
+        normalized_query.encode("utf-8")
+    ).hexdigest()
+
+    # --------------------------------------------------------
+    # 2. PRESERVE ORIGINAL DATASET ID WHEN PRESENT
+    # --------------------------------------------------------
+
+    native_field = None
+    native_id = None
+
+    for field in (
+        "id",
+        "_id",
+        "claim_id",
+        "question_id"
+    ):
+        value = raw_example.get(field)
+
+        if value is not None and str(value).strip():
+            native_field = field
+            native_id = str(value)
+            break
+
+    # --------------------------------------------------------
+    # 3. STABLE SOURCE RECORD FINGERPRINT
+    # --------------------------------------------------------
+
+    raw_serialized = json.dumps(
+        raw_example,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str
+    )
+
+    record_digest = hashlib.sha256(
+        (dataset + "\n" + raw_serialized).encode("utf-8")
+    ).hexdigest()
+
+    # --------------------------------------------------------
+    # 4. REPLACE SPLIT-LOCAL ORDINAL EXAMPLE IDS
+    # --------------------------------------------------------
+
+    state = str(instance["evidence_state_label"])
+
+    suffix = (
+        "gold_full"
+        if state == "sufficient"
+        else state
+    )
+
+    stable_prefix = f"{dataset}_{record_digest[:24]}"
+
+    instance["example_id"] = f"{stable_prefix}_{suffix}"
+
+    # Stable evidence IDs within the original record.
+    for idx, unit in enumerate(
+        instance.get("evidence_units", [])
+    ):
+        unit["evidence_id"] = (
+            f"{stable_prefix}_unit_{idx:04d}"
+        )
+
+    # --------------------------------------------------------
+    # 5. ADD AUDIT-ONLY SOURCE METADATA
+    # --------------------------------------------------------
+
+    instance["source_native_id"] = native_id
+
+    instance["source_native_id_field"] = native_field
+
+    instance["source_family_id"] = (
+        f"{dataset}:question_sha256:{question_digest}"
+    )
+
+    instance["source_record_id"] = (
+        f"{dataset}:record_sha256:{record_digest}"
+    )
+
+    instance["source_split"] = original_split
+
+    instance["source_id_method"] = (
+        "native_id_and_query_hash"
+        if native_id is not None
+        else "question_hash_fallback"
+    )
+
+    return instance
+
 
 def parse_args():
     """Define and parse command-line arguments."""
@@ -642,14 +784,33 @@ def run_conversion(args):
     print(f"\n[2/4] Converting examples...")
     converted = []
     skipped = 0
+
     
     for idx, raw_example in enumerate(raw_dataset):
         result = convert_fn(raw_example, idx)
-        
+
         if result is not None:
+
+            # TKDE revision: attach stable original-source
+            # identifiers BEFORE variant generation.
+            result = attach_source_traceability(
+                instance=result,
+                raw_example=raw_example,
+                original_split=args.split
+            )
+
             converted.append(result)
+
         else:
             skipped += 1
+
+    # for idx, raw_example in enumerate(raw_dataset):
+    #     result = convert_fn(raw_example, idx)
+        
+    #     if result is not None:
+    #         converted.append(result)
+    #     else:
+    #         skipped += 1
         
         # Progress update every 1000 examples
         if (idx + 1) % 1000 == 0:
